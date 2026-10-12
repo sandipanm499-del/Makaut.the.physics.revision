@@ -33,11 +33,19 @@ body{margin:0;background:radial-gradient(900px 500px at 85% -5%,#3a0f55 0,transp
 .unit .syl{font-size:14px;color:var(--mut);margin:6px 2px 10px}
 .topic{background:var(--card);border:1px solid var(--rule);border-radius:14px;margin:10px 0;transition:border-color .25s,box-shadow .25s}
 .topic.open{border-color:var(--cy);box-shadow:0 0 18px #25f2ff44}
-.head{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:1fr auto;gap:0 10px;align-items:center;padding:13px 14px;cursor:pointer}
-.head .ttl{font-family:Sora,sans-serif;font-size:16px;line-height:1.35;font-weight:600}.head .yrs{grid-column:1;font-size:13px;color:var(--cy)}
+.head{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;padding:13px 14px;cursor:pointer}
+.head-ttl-row{grid-column:1;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.head .ttl{font-family:Sora,sans-serif;font-size:16px;line-height:1.35;font-weight:600;flex:1 1 180px}
+.topic-corner{display:inline-flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;color:var(--cy);background:#0a102e;border:1px solid rgba(37,242,255,0.3);border-radius:999px;padding:2px 8px;white-space:nowrap;box-shadow:0 0 8px rgba(37,242,255,0.15);transition:all .25s;margin-left:auto}
+.topic.open .topic-corner{color:var(--lm);border-color:rgba(184,255,61,0.5);background:#0d1d1f;box-shadow:0 0 10px rgba(184,255,61,0.25)}
+.head .yrs{grid-column:1;font-size:13px;color:var(--cy)}
 .head .arr{grid-row:1/span 2;grid-column:2;width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--cy);color:var(--cy);border-radius:50%;font-size:19px;transition:transform .25s}
 .topic.open .arr{transform:rotate(90deg);background:var(--cy);color:#001}
 .topic.is-done .ttl::after{content:" \2713";color:var(--ok)}
+.ans-action{display:flex;align-items:center;gap:10px;margin:8px 0 2px;flex-wrap:wrap}
+.ans-action .show{margin:0}
+.q-views-badge{display:inline-flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--mut);background:#070d24;border:1px solid var(--rule);border-radius:999px;padding:2px 8px;white-space:nowrap;transition:all .2s}
+.q-views-badge.viewed{color:var(--cy);border-color:rgba(37,242,255,0.4);box-shadow:0 0 6px rgba(37,242,255,0.2)}
 .body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s ease}.topic.open .body{grid-template-rows:1fr}.inner{min-height:0;overflow:hidden}
 .content{padding:2px 14px 12px}
 .content h4{font-family:Sora,sans-serif;font-size:15.5px;margin:14px 0 4px;color:var(--cy)}
@@ -1193,6 +1201,15 @@ let store={};
 try{store=JSON.parse(localStorage.getItem('phy-makaut-done-v1')||'{}')}catch(e){store={}}
 function save(){try{localStorage.setItem('phy-makaut-done-v1',JSON.stringify(store))}catch(e){}}
 
+let topicViews={};
+try{topicViews=JSON.parse(localStorage.getItem('phy-makaut-views-topics-v1')||'{}')}catch(e){topicViews={}}
+let qViews={};
+try{qViews=JSON.parse(localStorage.getItem('phy-makaut-views-questions-v1')||'{}')}catch(e){qViews={}}
+function saveViews(){
+  try{localStorage.setItem('phy-makaut-views-topics-v1',JSON.stringify(topicViews))}catch(e){}
+  try{localStorage.setItem('phy-makaut-views-questions-v1',JSON.stringify(qViews))}catch(e){}
+}
+
 let unitFilter=0, query='';
 const panelsEl=document.getElementById('panels'), chipsEl=document.getElementById('chips');
 
@@ -1277,7 +1294,7 @@ let html='';
     if(tp.u!==u) return;
     const b=build(tp), key='T'+i;
     html+='<article class="topic'+(store[key]?' is-done':'')+'" data-u="'+u+'" data-key="'+key+'" data-s="'+esc(strip(tp.t+' '+b.h))+'">'
-      +'<button class="head" aria-expanded="false"><span class="ttl">'+tp.t+'</span><span class="yrs">Revision &middot; Group '+b.g.join(' &middot; ')+'</span><span class="arr" aria-hidden="true">&#8250;</span></button>'
+      +'<button class="head" aria-expanded="false"><div class="head-ttl-row"><span class="ttl">'+tp.t+'</span><span class="topic-corner" data-tk="'+key+'" title="Topic views">👁️ <span class="tk-cnt">'+(topicViews[key]||0)+'</span> '+(topicViews[key]===1?'view':'views')+'</span></div><span class="yrs">Revision &middot; Group '+b.g.join(' &middot; ')+'</span><span class="arr" aria-hidden="true">&#8250;</span></button>'
       +'<div class="body"><div class="inner"><div class="content">'+b.h+'</div>'
       +'<label class="done"><input type="checkbox"'+(store[key]?' checked':'')+'> Mark as done</label></div></div></article>';
   });
@@ -1298,6 +1315,16 @@ panelsEl.addEventListener('click',e=>{
   if(head){
     const t=head.parentElement, open=!t.classList.contains('open');
     t.classList.toggle('open',open); head.setAttribute('aria-expanded',open);
+    if(open){
+      const key=t.dataset.key;
+      topicViews[key]=(topicViews[key]||0)+1;
+      saveViews();
+      const el=head.querySelector('[data-tk="'+key+'"] .tk-cnt');
+      if(el){
+        el.textContent=topicViews[key];
+        el.parentElement.lastChild.textContent=' '+(topicViews[key]===1?'view':'views');
+      }
+    }
     return;
   }
   const cb=e.target.closest('.done input');
@@ -1310,7 +1337,17 @@ panelsEl.addEventListener('click',e=>{
 function setAll(open){
   panelsEl.querySelectorAll('.topic:not([hidden])').forEach(t=>{
     t.classList.toggle('open',open); t.querySelector('.head').setAttribute('aria-expanded',open);
+    if(open){
+      const key=t.dataset.key;
+      topicViews[key]=(topicViews[key]||0)+1;
+      const el=t.querySelector('[data-tk="'+key+'"] .tk-cnt');
+      if(el){
+        el.textContent=topicViews[key];
+        el.parentElement.lastChild.textContent=' '+(topicViews[key]===1?'view':'views');
+      }
+    }
   });
+  if(open) saveViews();
 }
 document.getElementById('expand').onclick=()=>setAll(true);
 document.getElementById('collapse').onclick=()=>setAll(false);
@@ -1363,8 +1400,52 @@ const sp=document.getElementById('splash');document.body.classList.add('lock');
 sp.addEventListener('click',()=>{if(sp.classList.contains('go'))return;magic();sp.classList.add('go');
  if(!matchMedia('(prefers-reduced-motion:reduce)').matches)for(let i=0;i<28;i++){const e=document.createElement('i');e.className='spark';const a=Math.random()*6.283,r=90+Math.random()*180;e.style.cssText='--x:'+Math.cos(a)*r+'px;--y:'+Math.sin(a)*r+'px;background:'+['#25f2ff','#ff3df0','#b8ff3d','#fff'][i%4]+';box-shadow:0 0 8px currentColor';document.body.appendChild(e);setTimeout(()=>e.remove(),1100)}
  setTimeout(()=>{sp.remove();window.openPicker&&openPicker()},800)});
-panelsEl.querySelectorAll('.qa .a,.sol').forEach(el=>{const b=document.createElement('button');b.type='button';b.className='show';b.textContent='Show ans';b.setAttribute('aria-expanded','false');el.before(b);el.hidden=true});
-panelsEl.addEventListener('click',e=>{const b=e.target.closest('.show');if(!b)return;const t=b.nextElementSibling,o=t.hidden;t.hidden=!o;b.setAttribute('aria-expanded',o);b.textContent=o?'Hide ans':'Show ans';if(o){t.classList.remove('pop');void t.offsetWidth;t.classList.add('pop');ping()}});
+panelsEl.querySelectorAll('.qa .a,.sol').forEach((el,idx)=>{
+  const qk='Q_'+idx;
+  const wrap=document.createElement('div');
+  wrap.className='ans-action';
+  const b=document.createElement('button');
+  b.type='button';
+  b.className='show';
+  b.textContent='Show ans';
+  b.setAttribute('aria-expanded','false');
+  b.dataset.qk=qk;
+  const badge=document.createElement('span');
+  badge.className='q-views-badge'+(qViews[qk]?' viewed':'');
+  badge.dataset.qk=qk;
+  badge.innerHTML='👁️ <span class="qk-cnt">'+(qViews[qk]||0)+'</span> '+(qViews[qk]===1?'view':'views');
+  wrap.appendChild(b);
+  wrap.appendChild(badge);
+  el.before(wrap);
+  el.hidden=true;
+});
+panelsEl.addEventListener('click',e=>{
+  const b=e.target.closest('.show');
+  if(!b)return;
+  const wrap=b.parentElement;
+  const t=wrap.nextElementSibling,o=t.hidden;
+  t.hidden=!o;
+  b.setAttribute('aria-expanded',o);
+  b.textContent=o?'Hide ans':'Show ans';
+  if(o){
+    t.classList.remove('pop');
+    void t.offsetWidth;
+    t.classList.add('pop');
+    ping();
+    const qk=b.dataset.qk;
+    if(qk){
+      qViews[qk]=(qViews[qk]||0)+1;
+      saveViews();
+      const badge=wrap.querySelector('.q-views-badge');
+      if(badge){
+        badge.classList.add('viewed');
+        const cnt=badge.querySelector('.qk-cnt');
+        if(cnt) cnt.textContent=qViews[qk];
+        badge.lastChild.textContent=' '+(qViews[qk]===1?'view':'views');
+      }
+    }
+  }
+});
 const bad=()=>{if(mute)return;const c=ctx();if(!c)return;const t=c.currentTime;note(c,330,t,.3,.1,'triangle');note(c,247,t+.1,.4,.1,'triangle')};const reveal=()=>{if(mute)return;const c=ctx();if(!c)return;const t=c.currentTime;[1047,1319,1568,2093,2637].forEach((f,i)=>{note(c,f,t+i*.06,.7,.12);note(c,f*2,t+i*.06,.3,.03,'triangle')})};window.SND={magic,ping,bad,reveal};const snd=document.getElementById('snd');snd.onclick=()=>{mute=!mute;snd.textContent=mute?'Sound off':'Sound on';if(!mute)ping()};
 let dp;addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e});
 document.getElementById('inst').onclick=()=>{if(dp){dp.prompt();dp=null}else toast('Open the browser menu (3 dots or Share) and tap Add to Home screen')};
@@ -1414,22 +1495,21 @@ const PR=document.createElement('div');PR.className='ov';PR.hidden=true;PR.id='p
 let ps={};
 const pShell=b=>{PR.innerHTML='<div class="ov-in"><div class="top"><span>Practice &middot; '+GN[ps.g][0]+'</span><button class="lnk" data-p="close">Close</button></div>'+b+'</div>'};
 const pCard=()=>{if(ps.i>=ps.items.length)return pEnd();const c=ps.items[ps.i],n=ps.items.length;
- pShell('<div class="bar"><i style="width:'+(100*ps.i/n)+'%"></i></div><div class="top"><span>Card '+(ps.i+1)+' of '+n+'</span><span>Knew it: '+ps.ok+'</span></div><div class="pcard slide"><div class="tag">'+c.c+(c.y?' &middot; '+c.y:'')+'</div><div class="q">'+c.q+'</div><textarea id="gs" rows="'+(ps.g==='A'?2:4)+'" placeholder="Your guess first: write it, or just think it through..."></textarea><div class="row"><button class="ms" data-p="skip">Skip</button><button class="gobtn" data-p="rev">Reveal answer</button></div><div id="ans"></div></div>');PR.scrollTop=0};
-const pEnd=()=>{const n=ps.items.length,pc=Math.round(100*ps.ok/n);pc>=70?(S.magic&&S.magic(),burst()):(S.ping&&S.ping());
- pShell('<div class="big">'+ps.ok+' / '+n+'</div><p style="text-align:center;font-size:18px;color:#fff">'+(pc>=80?'Excellent round!':pc>=50?'Good going. Revise the ones you missed.':'Read the notes once more, then try again.')+'</p><div class="row">'+(ps.miss.length?'<button class="gt" data-p="retry">Retry missed ('+ps.miss.length+')</button>':'')+'<button class="ms" data-p="modes">Choose another mode</button></div>')};
+ pShell('<div class="bar"><i style="width:'+(100*ps.i/n)+'%"></i></div><div class="top"><span>Card '+(ps.i+1)+' of '+n+'</span><span>Progress: '+(ps.i+1)+' / '+n+'</span></div><div class="pcard slide"><div class="tag">'+c.c+(c.y?' &middot; '+c.y:'')+'</div><div class="q">'+c.q+'</div><textarea id="gs" rows="'+(ps.g==='A'?2:4)+'" placeholder="Your guess first: write it, or just think it through..."></textarea><div class="row"><button class="ms" data-p="prev"'+(ps.i===0?' disabled style="opacity:.35;cursor:not-allowed"':'')+'>&larr; Prev</button><button class="gobtn" data-p="rev">Reveal answer</button><button class="ms" data-p="next">Next &rarr;</button></div><div id="ans"></div></div>');PR.scrollTop=0};
+const pEnd=()=>{const n=ps.items.length;S.magic&&S.magic();burst();
+ pShell('<div class="big">'+n+' / '+n+'</div><p style="text-align:center;font-size:18px;color:#fff">Completed round! Review the notes or start another practice round.</p><div class="row"><button class="gt" data-p="retry">Practice again</button><button class="ms" data-p="modes">Choose another mode</button></div>')};
 const shufP=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const startP=(g,items)=>{ps={g,items:items||shufP(gpool(g)).slice(0,g==='A'?15:10),i:0,ok:0,miss:[]};if(!ps.items.length){toast('No cards here yet');return}PR.classList.remove('out');PR.hidden=false;document.body.classList.add('lock');pCard()};
 PR.addEventListener('click',e=>{const x=e.target.closest('[data-p]');if(!x)return;const k=x.dataset.p;
  if(k==='close'){PR.hidden=true;document.body.classList.remove('lock');window.scrollTo(0,0)}
  else if(k==='modes'){PR.hidden=true;drawModes()}
  else if(k==='rev'){const g=(document.getElementById('gs').value||'').trim(),a=document.getElementById('ans');S.reveal&&S.reveal();burstAt(x);
-  a.innerHTML=(g?'<div class="gz"><small>Your guess</small>'+g.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>':'')+'<div class="an rev"><b class="al">Answer</b>'+ps.items[ps.i].a+'</div><div class="row"><button class="ms" data-p="miss">Need revision</button><button class="gt" data-p="got">Knew it</button></div>';
+  a.innerHTML=(g?'<div class="gz"><small>Your guess</small>'+g.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>':'')+'<div class="an rev"><b class="al">Answer</b>'+ps.items[ps.i].a+'</div><div class="row"><button class="ms" data-p="prev"'+(ps.i===0?' disabled style="opacity:.35;cursor:not-allowed"':'')+'>&larr; Prev</button><button class="gt" data-p="next">Next &rarr;</button></div>';
   a.querySelectorAll('.an').forEach(el=>{const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),L=[];while(w.nextNode())L.push(w.currentNode);L.forEach(n=>{if(/[\u03b1-\u03c9]/.test(n.nodeValue)){const sp=document.createElement('span');sp.innerHTML=n.nodeValue.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/[\u03b1-\u03c9]/g,m=>'<i>'+m+'</i>');n.replaceWith(...sp.childNodes)}})});
   x.parentElement.hidden=true;a.scrollIntoView({behavior:'smooth',block:'nearest'})}
- else if(k==='got'){ps.ok++;S.ping&&S.ping();ps.i++;pCard()}
- else if(k==='miss'){ps.miss.push(ps.items[ps.i]);S.bad&&S.bad();ps.i++;pCard()}
- else if(k==='skip'){ps.i++;pCard()}
- else if(k==='retry')startP(ps.g,shufP(ps.miss))});
+ else if(k==='prev'){if(ps.i>0){ps.i--;S.ping&&S.ping();pCard()}}
+ else if(k==='next'||k==='got'||k==='skip'){ps.ok=Math.max(ps.ok,ps.i+1);S.ping&&S.ping();ps.i++;pCard()}
+ else if(k==='retry')startP(ps.g)});
 document.getElementById('chg').onclick=()=>openPicker();
 /* unit quiz cards */
 panelsEl.querySelectorAll('.unit').forEach(el=>{const u=+el.dataset.u,n=T.filter(t=>t.u===u).reduce((a,t)=>a+t.a.length,0);if(!n)return;const d=document.createElement('div');d.className='qz-card';d.dataset.u=u;d.innerHTML='<p>Finished this chapter? Test yourself with '+Math.min(10,n)+' quick questions.</p><button class="qzbtn" data-u="'+u+'">Start quiz</button>';el.appendChild(d)});

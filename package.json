@@ -1,0 +1,16 @@
+{
+  "name": "makaut-physics-revision",
+  "version": "1.0.0",
+  "description": "Best Physics-I Notes for MAKAUT (BS-PH101)",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'Static web application ready.'",
+    "lint": "node --check server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
